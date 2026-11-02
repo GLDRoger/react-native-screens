@@ -4,6 +4,9 @@ require 'xcodeproj'
 require 'fileutils'
 require 'shellwords'
 
+# RNS_SEARCH_MUTATION=missing-dismiss|missing-text-update|unconditional-dismiss exercises test sensitivity.
+mutation = ENV['RNS_SEARCH_MUTATION']
+abort 'Unknown RNS_SEARCH_MUTATION' if mutation && !%w[missing-dismiss missing-text-update unconditional-dismiss].include?(mutation)
 app, device, output = ARGV
 abort 'Usage: ruby scripts/test-search-bar-ios.rb <app> <simulator-udid> <output>' unless output
 app = File.expand_path(app)
@@ -46,6 +49,12 @@ scheme = Xcodeproj::XCScheme.new
 scheme.add_build_target(host)
 scheme.add_build_target(target)
 scheme.add_test_target(target)
+if mutation
+  scheme.test_action.should_use_launch_scheme_args_env = false
+  scheme.test_action.environment_variables = Xcodeproj::XCScheme::EnvironmentVariables.new([
+    { :key => 'RNS_SEARCH_MUTATION', :value => mutation, :enabled => true }
+  ])
+end
 scheme.save_as(project.path, 'SearchEvents', true)
 exec 'xcodebuild', 'test', '-project', project.path.to_s, '-scheme', 'SearchEvents',
      '-destination', "platform=iOS Simulator,id=#{device}", '-derivedDataPath', "#{output}/build"
